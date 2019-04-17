@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset=utf-8 />
+  <title>US Rent Map</title>
+  <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+  <link rel='icon' href='data/rent_icon.png' type='image/x-icon' />
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.4.0/dist/leaflet.css" />
+  <link href='http://fonts.googleapis.com/css?family=Lato' rel='stylesheet' type='text/css'>
+
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: #222;
+      font-family: Lato, sans-serif;
+      font-size: 100%;
+      color: #ddd;
+    }
+
+    #map {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 100%;
+      background: #F8F8FF;
+    }
+
+    a {
+      color: #0000FF;
+      text-decoration: none;
+    }
+
+    a:hover {
+      color: #00008B;
+      text-decoration: underline;
+    }
+
+    .legend {
+      padding: 6px 8px;
+      font-size: 1em;
+      border: 4px solid rgba(128, 128, 128, 0.2);
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: 5px;
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+    }
+
+    .legend h3 {
+      font-size: 1.1em;
+      font-weight: bolder;
+      color: #000000;
+      margin: 0 0 10px 0;
+    }
+
+    .leaflet-bar a {
+      background: rgba(255, 255, 255, 0.9);
+      color: rgba(0, 0, 0, 0.8);
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+    }
+
+    .legend span {
+      width: 20px;
+      height: 20px;
+      float: left;
+      margin: 0 10px 4px 0;
+    }
+
+    .legend label {
+      font-size: 1.1em;
+      color: #000000;
+    }
+
+    .legend label:after {
+      content: '';
+      display: block;
+      clear: both;
+    }
+
+    footer {
+      padding: 6px 10%;
+      width: 80%;
+    }
+
+    h3 {
+      font-weight: 300;
+      font-size: 1.8em;
+      margin-bottom: 5px;
+      margin-left: 0px;
+    }
+
+    p {
+      font-size: 1em;
+      color: #001323;
+    }
+
+    #info-button {
+      padding: 8px 5px;
+      font-size: 0.9em;
+      font-weight: bolder;
+      border: 2px solid rgba(128, 128, 128, 0.4);
+      background: rgba(255, 255, 255, 0.9);
+      color: rgba(128, 128, 128, 0.9);
+      border-radius: 5px;
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+      /* Position is fixed next to the zoom bar */
+      position: fixed;
+      top: 11px;
+      right: 52px;
+      /* Draw it on top of all elements */
+      z-index: 9999;
+      /* Cursor change on hover -- doesn't work on touch screens */
+      cursor: pointer;
+    }
+
+    #footer {
+      width: 100%;
+      background: rgba(244, 244, 244, 0.8);
+      color: rgba(20, 20, 20, 0.8);
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+      height: 0px;
+      padding: 0px;
+      /* display below the button to allow clicking if overlay covers screen */
+      z-index: 9000;
+      position: absolute;
+      /*Hide footer by default*/
+      bottom: -10px;
+      /* If too much is included, enable scroll*/
+      overflow: scroll;
+    }
+
+    #footer div {
+      padding: 10px;
+    }
+
+    #footer h1 {
+      font-size: 1.3em;
+      margin: 0 0 5px 0;
+    }
+
+    .footer-img {
+      float: right;
+      height: 10vh;
+      margin: 10px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div id='map'></div>
+  <button id="info-button" onclick="myInfo()">Information</button>
+
+  <div id='footer'>
+    <div><p>Map authored by Osama Abdl-Haleem</p>
+    <p>Data laboriously gathered from <a href="https://factfinder.census.gov/faces/nav/jsf/pages/index.xhtml">American FactFinder</a> and the <a href="https://www.census.gov/geo/maps-data/data/tiger-cart-boundary.html">US Census</a>.</p>
+    <p>Rent prices in this country change dramatically based on where you live. This interactive map is meant to make people in Arlington County, Virginia feel aweful about their rents, and folks in Cottle County, Texas feel awesome about what they pay. Hover over your county to see how your rents measure up.
+    </p>
+    </div>
+  </div>
+
+  <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+  <script src="https://unpkg.com/leaflet@1.4.0/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/simple-statistics@6.1.1/dist/simple-statistics.min.js"></script>
+
+  <script>
+    var options = {
+      center: [39.50, -98.35],
+      zoom: 4.4,
+      zoomSnap: .2,
+      zoomControl: false
+    }
+    var map = L.map('map', options);
+
+    map.addControl(L.control.zoom({
+      position: 'topright'
+    }));
+
+    var countyLayer = $.getJSON("data/counties_median_rent_2015.json", function(data) {
+
+      var dataLayer = L.geoJson(data, {
+        style: function(feature) {
+          return {
+            color: 'gainsboro',
+            // color: '#ffffff',
+            weight: .5,
+            fillOpacity: 1,
+            fillColor: '#1f78b4'
+          };
+        }
+      })
+      dataLayer.addTo(map)
+      drawMap(dataLayer);
+    });
+
+    // Tell jQuery to wait
+    $.when(countyLayer).done(function() {
+      $.getJSON("data/us_states_20m.geojson", function(data) {
+
+        var stateLayer = L.geoJson(data, {
+          style: function(feature) {
+            return {
+              // Let's experiment with these colors shortly
+              // color: '#222222', // Gray
+              color: 'Silver', // White
+              // Make line weight larger than the county outline
+              weight: 1.1,
+              fillOpacity: 0,
+              // This property allows us control interactivty of layer
+              interactive: false
+            };
+          },
+        });
+        // Add layer to map!
+        stateLayer.addTo(map)
+      });
+    });
+
+    // FUNCTIONS BEGIN HERE
+
+    function drawMap(dataLayer) {
+
+      var breaks = getClassBreaks(dataLayer);
+      dataLayer.eachLayer(function(layer) {
+
+        var props = layer.feature.properties;
+        if (props.RENT == null) {
+          var nullValues = props.RENT;
+        } else {
+          layer.setStyle({
+            fillColor: getColor(props.RENT, breaks)
+          });
+        }
+
+        var message = "<b>" + props.NAME + "</b><br>Average Rent: " + props.RENT;
+        layer.bindPopup(message);
+
+        if (L.Browser.mobile) {
+          // if true use popup
+          layer.bindPopup(message);
+        } else {
+          // if false use tooltip
+          layer.bindTooltip(message, {
+            sticky: true
+          });
+        };
+      });
+
+      drawLegend(breaks);
+    } //end drawMap()
+
+    function getClassBreaks(dataLayer) {
+
+      var values = []; // create empty Array for storing values
+      var nullValues; // create variable for storing null values
+
+      // loop through all the counties
+      dataLayer.eachLayer(function(layer) {
+        var props = layer.feature.properties;
+        var value = props.RENT;
+        if (value == null) {
+          nullValues = value;
+        } else {
+          // convert string to int
+          values.push(Number(value));
+        }
+      });
+      // determine similar clusters
+      var clusters = ss.ckmeans(values, 5);
+      // create an array of the lowest value within each cluster
+      var breaks = clusters.map(function(clusters) {
+        return [clusters[0], clusters.pop()];
+      });
+
+      return breaks; // return Array of class breaks
+    } // end getClassBreaks function
+
+    function getColor(d, breaks) {
+
+      if (d <= breaks[0][1]) {
+        return '#eff3ff';
+      } else if (d <= breaks[1][1]) {
+        return '#bdd7e7';
+      } else if (d <= breaks[2][1]) {
+        return '#6baed6';
+      } else if (d <= breaks[3][1]) {
+        return '#3182bd';
+      } else {
+        return '#08519c';
+      }
+    } // end getColor
+
+    function drawLegend(breaks) {
+      // create a new Leaflet control object, and position it top left
+      var legend = L.control({
+        position: 'topleft',
+        opacity: 0
+      });
+      // when the legend is added to the map
+      legend.onAdd = function() {
+        // create a new HTML <div> element and give it a class name of "legend"
+        var div = L.DomUtil.create('div', 'legend');
+
+        div.innerHTML = "<h3>Average Rent by County</h3>";
+        // for each of our breaks
+        for (var i = 0; i < breaks.length; i++) {
+
+          var color = getColor(breaks[i][0], breaks);
+
+          div.innerHTML +=
+            '<span style="background:' + color + '"></span> ' +
+            '<label>' + '$' + breaks[i][0] + ' &mdash; ' +
+            breaks[i][1] + '</label>';
+        }
+        // return the populated div to be added to the map
+        return div;
+      };
+
+      legend.addTo(map);
+    } // end drawLegend function
+
+    /* --------------- Toggle on/off info footer content ---------------  */
+    var clicked = false
+    function myInfo() {
+
+      // create button that changes color on click
+      var y = document.getElementById('info-button');
+      if (clicked === true) {
+        y.style.background = 'rgba(255, 255, 255, 0.9)'; // white button when disabled
+        y.style.color = 'rgba(128, 128, 128, 0.9)'
+        clicked = false
+      } else {
+        y.style.background = 'rgba(105, 105, 105, 0.8)' // gray button when enabled
+        y.style.color = 'rgba(244, 244, 244, 0.8)'
+        clicked = true
+      }
+
+      // create a footer overlay that displays 33% of the current viewport height
+      var x = document.getElementById('footer');
+      if (x.style.height === '33vh') {
+        x.style.height = '0px';
+      } else {
+        x.style.height = '33vh';
+      }
+    }
+  </script>
+
+</body>
+
+</html>
